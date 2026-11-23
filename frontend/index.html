@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wickbound 测试台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%23c2410c'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1c1a; --muted: #6b6862; --line: #e4e1da;
+    --accent: #c2410c; --accent-ink: #ffffff; --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+    --chip: #f1efe9; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141312; --panel: #1d1c1a; --ink: #ecebe7; --muted: #a29e96; --line: #33312d;
+      --accent: #fb923c; --accent-ink: #1d1c1a; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --chip: #262522;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.55 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: .02em; }
+  h1 span { color: var(--accent); }
+  h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .mono { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+          background: var(--chip); font-size: 13px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .narrow { max-width: 420px; margin: 32px auto; }
+  form { display: grid; gap: 10px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row > * { flex: 1 1 120px; }
+  label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  input, textarea { width: 100%; padding: 9px 11px; border-radius: 8px; border: 1px solid var(--line);
+                    background: var(--bg); color: var(--ink); font: inherit; }
+  textarea { font-family: var(--mono); font-size: 12.5px; min-height: 70px; resize: vertical; }
+  input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  button { padding: 9px 14px; border-radius: 8px; border: 1px solid transparent; font: inherit; font-weight: 600;
+           background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+  button.ghost { background: transparent; color: var(--ink); border-color: var(--line); font-weight: 500; }
+  button:disabled { opacity: .55; cursor: progress; }
+  .tabs { display: flex; gap: 4px; background: var(--chip); padding: 4px; border-radius: 10px; margin-bottom: 14px; }
+  .tabs button { flex: 1; background: transparent; color: var(--muted); font-weight: 500; }
+  .tabs button.on { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .msg { font-size: 13px; padding: 8px 10px; border-radius: 8px; background: var(--chip); }
+  .msg.ok { color: var(--ok); } .msg.bad { color: var(--bad); }
+  .msg:empty { display: none; }
+  .stat { font-size: 26px; font-weight: 700; line-height: 1.1; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 14px; margin-bottom: 12px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.me td { color: var(--accent); font-weight: 600; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--chip); }
+  .badge.approved { color: var(--ok); } .badge.pending { color: var(--warn); } .badge.rejected { color: var(--bad); }
+  .badge.admin { color: var(--accent); }
+  .acct-actions { display: flex; gap: 8px; }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .acct { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .log { margin-top: 24px; }
+  .log ol { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; }
+  .log li { font-family: var(--mono); font-size: 12.5px; padding: 3px 0; border-bottom: 1px dashed var(--line);
+            display: grid; grid-template-columns: 64px 52px minmax(0, 1fr) 40px; gap: 8px; }
+  .s2 { color: var(--ok); } .s4 { color: var(--warn); } .s5 { color: var(--bad); }
+  [hidden] { display: none !important; }
+  @media (max-width: 520px) { .log li { grid-template-columns: 60px 44px minmax(0, 1fr) 32px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span>Wickbound</span> 测试台</h1>
+    <span class="pill" id="health"><span class="dot"></span><span>检查 API…</span></span>
+  </header>
+
+  <!-- missing publishable key -->
+  <section id="setup" class="card narrow" hidden>
+    <h2>配置 Supabase</h2>
+    <p class="small muted">后端没有提供 <code>SUPABASE_PUBLISHABLE_KEY</code>。可以在 Vercel 设置这个环境变量，或者在这里临时填写（只保存在本浏览器）。</p>
+    <form id="setup-form">
+      <label>Supabase 项目 URL<input name="url" placeholder="https://xxxx.supabase.co" required></label>
+      <label>Publishable key<input name="key" placeholder="sb_publishable_..." required></label>
+      <button>保存</button>
+    </form>
+  </section>
+
+  <!-- logged out -->
+  <section id="auth" class="card narrow" hidden>
+    <div class="tabs">
+      <button type="button" data-mode="login" class="on">登录</button>
+      <button type="button" data-mode="signup">注册</button>
+    </div>
+    <form id="auth-form">
+      <label>邮箱<input name="email" type="email" autocomplete="email" required></label>
+      <label>密码<input name="password" type="password" autocomplete="current-password" minlength="6" required></label>
+      <button id="auth-submit">登录</button>
+      <div class="msg" id="auth-msg"></div>
+    </form>
+  </section>
+
+  <!-- logged in -->
+  <section id="dash" hidden>
+    <div class="acct">
+      <div><span class="muted small">已登录</span> <strong id="acct-email"></strong></div>
+      <div class="acct-actions">
+        <button class="ghost" id="refresh">刷新数据</button>
+        <button class="ghost" id="logout">退出登录</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>我的档案 <span id="role-badge"></span></h2>
+        <div id="profile-view"></div>
+        <form id="profile-form">
+          <label><span id="profile-label">用户名（3–20 位字母、数字或下划线）</span>
+            <input name="username" pattern="[A-Za-z0-9_]{3,20}" required></label>
+          <button id="profile-submit">创建档案</button>
+          <div class="msg" id="profile-msg"></div>
+        </form>
+      </div>
+
+      <div class="card needs-profile">
+        <h2>我的成绩 <span class="muted small">全局榜</span></h2>
+        <div id="best-view" style="margin-bottom:14px"></div>
+        <form id="score-form">
+          <div class="row">
+            <label>分数<input name="score" type="number" min="0" value="1200" required></label>
+            <label>用时（秒）<input name="seconds" type="number" min="0" step="0.1" value="60" required></label>
+          </div>
+          <button>提交测试成绩</button>
+          <div class="msg" id="score-msg"></div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>全局排行榜 <span class="muted small">前 10 名</span></h2>
+        <table>
+          <thead><tr><th>#</th><th>玩家</th><th class="num">分数</th><th class="num">用时</th></tr></thead>
+          <tbody id="board"></tbody>
+        </table>
+      </div>
+
+      <div class="card needs-profile">
+        <h2>我的关卡</h2>
+        <table style="margin-bottom:14px">
+          <thead><tr><th>标题</th><th>状态</th><th class="num">上传时间</th></tr></thead>
+          <tbody id="levels"></tbody>
+        </table>
+        <form id="level-form">
+          <label>标题<input name="title" maxlength="64" value="测试关卡" required></label>
+          <label>描述<input name="description" maxlength="500" placeholder="可选"></label>
+          <label>关卡数据（JSON 对象）<textarea name="data">{"tiles": [[0, 1, 0], [1, 0, 1]], "spawn": [0, 0]}</textarea></label>
+          <button>上传关卡</button>
+          <div class="msg" id="level-msg"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="card log">
+    <h2>请求记录 <button class="ghost small" id="clear-log" style="padding:4px 10px">清空</button></h2>
+    <ol id="log"></ol>
+  </section>
+</div>
+
+<script>
+"use strict";
+const $ = (sel) => document.querySelector(sel);
+const SESSION_KEY = "wb_session";
+const CONFIG_KEY = "wb_supabase_config";
+
+const state = { cfg: null, session: loadJSON(SESSION_KEY), profile: null, mode: "login" };
+
+function loadJSON(key) { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch { return null; } }
+function saveJSON(key, value) { try { value ? localStorage.setItem(key, JSON.stringify(value)) : localStorage.removeItem(key); } catch {} }
+
+/* ---------- tiny DOM helper (text is always set via textContent) ---------- */
+function h(tag, attrs = {}, ...children) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") el.className = v; else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const c of children.flat()) if (c != null) el.append(c instanceof Node ? c : String(c));
+  return el;
+}
+function setMsg(id, text, kind = "") { const el = $(id); el.textContent = text || ""; el.className = "msg " + kind; }
+const fmtTime = (iso) => iso ? new Date(iso).toLocaleString() : "—";
+const fmtSecs = (ms) => (ms / 1000).toFixed(1) + "s";
+
+/* ---------- request log ---------- */
+function logReq(method, path, status, ms) {
+  const cls = status >= 500 || status === 0 ? "s5" : status >= 400 ? "s4" : "s2";
+  const li = h("li", {}, h("span", { class: "muted" }, new Date().toLocaleTimeString([], { hour12: false })),
+    h("span", {}, method), h("span", {}, path), h("span", { class: cls }, status || "ERR"));
+  li.title = ms + " ms";
+  $("#log").prepend(li);
+}
+
+function errorText(body, status) {
+  if (!body) return `HTTP ${status}`;
+  const d = body.detail ?? body.msg ?? body.error_description ?? body.message ?? body.error;
+  if (Array.isArray(d)) return d.map((e) => `${(e.loc || []).slice(1).join(".")}: ${e.msg}`).join("；");
+  if (d && typeof d === "object") return [d.message, d.reason].filter(Boolean).join("：");
+  return d ? String(d) : `HTTP ${status}`;
+}
+
+async function rawFetch(url, opts, label) {
+  const t0 = performance.now();
+  let res;
+  try { res = await fetch(url, opts); }
+  catch (e) { logReq(opts.method || "GET", label, 0, 0); throw new Error("网络错误：" + e.message); }
+  logReq(opts.method || "GET", label, res.status, Math.round(performance.now() - t0));
+  const body = await res.json().catch(() => null);
+  return { res, body };
+}
+
+/* ---------- Supabase Auth (REST) ---------- */
+async function authCall(path, payload, token) {
+  const headers = { apikey: state.cfg.supabase_publishable_key, "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return rawFetch(`${state.cfg.supabase_url}/auth/v1/${path}`,
+    { method: "POST", headers, body: JSON.stringify(payload || {}) }, `auth/${path.split("?")[0]}`);
+}
+
+function setSession(data) {
+  state.session = data ? {
+    access_token: data.access_token, refresh_token: data.refresh_token,
+    expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+    email: data.user?.email || state.session?.email || "",
+  } : null;
+  saveJSON(SESSION_KEY, state.session);
+}
+
+// Refresh tokens are single-use, so concurrent callers must share one refresh request.
+let refreshing = null;
+function refreshSession() {
+  if (!refreshing) refreshing = doRefresh().finally(() => { refreshing = null; });
+  return refreshing;
+}
+async function doRefresh() {
+  if (!state.session?.refresh_token || !state.cfg?.supabase_url) return false;
+  try {
+    const { res, body } = await authCall("token?grant_type=refresh_token", { refresh_token: state.session.refresh_token });
+    if (!res.ok) { setSession(null); return false; }
+    setSession(body);
+    return true;
+  } catch { return false; }  // network error: keep the session, try again later
+}
+
+/* ---------- backend API ---------- */
+async function api(method, path, payload) {
+  if (state.session && state.session.expires_at - Date.now() / 1000 < 60) await refreshSession();
+  const go = () => {
+    const headers = {};
+    if (payload !== undefined) headers["Content-Type"] = "application/json";
+    if (state.session) headers.Authorization = `Bearer ${state.session.access_token}`;
+    return rawFetch(path, { method, headers, body: payload === undefined ? undefined : JSON.stringify(payload) }, path);
+  };
+  let { res, body } = await go();
+  if (res.status === 401 && state.session && await refreshSession()) ({ res, body } = await go());
+  if (res.status === 401 && state.session) { setSession(null); render(); }
+  return { ok: res.ok, status: res.status, body, error: res.ok ? null : errorText(body, res.status) };
+}
+
+/* ---------- views ---------- */
+function show(id) { for (const s of ["#setup", "#auth", "#dash"]) $(s).hidden = s !== id; }
+
+function render() {
+  if (!state.cfg?.supabase_url || !state.cfg?.supabase_publishable_key) return show("#setup");
+  if (!state.session) return show("#auth");
+  show("#dash");
+  $("#acct-email").textContent = state.session.email || "(无邮箱)";
+  loadDashboard();
+}
+
+async function loadDashboard() {
+  await loadProfile();
+  await Promise.all([loadBest(), loadBoard(), loadLevels()]);
+}
+
+async function loadProfile() {
+  const r = await api("GET", "/api/users/me");
+  state.profile = r.ok ? r.body : null;
+  const view = $("#profile-view");
+  view.replaceChildren();
+  $("#role-badge").replaceChildren();
+  for (const el of document.querySelectorAll(".needs-profile")) el.style.opacity = state.profile ? "" : ".5";
+  if (state.profile) {
+    const p = state.profile;
+    $("#role-badge").append(h("span", { class: "badge " + p.role }, p.role === "admin" ? "管理员" : "玩家"));
+    view.append(h("dl", { class: "kv" },
+      h("dt", {}, "用户名"), h("dd", {}, h("strong", {}, p.username)),
+      h("dt", {}, "用户 ID"), h("dd", { class: "mono" }, p.id),
+      h("dt", {}, "创建于"), h("dd", {}, fmtTime(p.created_at))));
+    $("#profile-label").textContent = "修改用户名";
+    $("#profile-submit").textContent = "保存用户名";
+    $("#profile-form").username.value = p.username;
+  } else if (r.status === 403) {
+    view.append(h("p", { class: "small muted" }, "已登录，但还没有游戏档案。先创建一个用户名，才能提交成绩和上传关卡。"));
+    $("#profile-label").textContent = "用户名（3–20 位字母、数字或下划线）";
+    $("#profile-submit").textContent = "创建档案";
+  } else {
+    view.append(h("p", { class: "msg bad" }, r.error));
+  }
+}
+
+async function loadBest() {
+  const view = $("#best-view");
+  view.replaceChildren();
+  if (!state.profile) return view.append(h("p", { class: "small muted" }, "需要先创建档案。"));
+  const r = await api("GET", "/api/scores/me");
+  if (r.status === 404) return view.append(h("p", { class: "small muted" }, "还没有成绩，提交一个试试。"));
+  if (!r.ok) return view.append(h("p", { class: "msg bad" }, r.error));
+  view.append(h("div", { class: "stats" },
+    h("div", {}, h("div", { class: "muted small" }, "最佳分数"), h("div", { class: "stat" }, r.body.score.toLocaleString())),
+    h("div", {}, h("div", { class: "muted small" }, "名次"), h("div", { class: "stat" }, "#" + r.body.rank)),
+    h("div", {}, h("div", { class: "muted small" }, "用时"), h("div", { class: "stat" }, fmtSecs(r.body.duration_ms)))));
+}
+
+async function loadBoard(bypassCache = false) {
+  // The leaderboard is CDN-cached for 10s; a distinct query string skips the cache right after a submit.
+  const r = await api("GET", "/api/scores?limit=10" + (bypassCache ? "&_=" + Date.now() : ""));
+  const tbody = $("#board");
+  tbody.replaceChildren();
+  if (!r.ok) return tbody.append(h("tr", {}, h("td", { colspan: 4, class: "muted" }, r.error)));
+  if (!r.body.items.length) return tbody.append(h("tr", {}, h("td", { colspan: 4, class: "muted" }, "暂无成绩")));
+  for (const e of r.body.items) {
+    tbody.append(h("tr", { class: state.profile && e.user_id === state.profile.id ? "me" : "" },
+      h("td", {}, e.rank), h("td", {}, e.username),
+      h("td", { class: "num" }, e.score.toLocaleString()), h("td", { class: "num" }, fmtSecs(e.duration_ms))));
+  }
+}
+
+const STATUS_TEXT = { approved: "已通过", pending: "待审核", rejected: "已拒绝" };
+async function loadLevels() {
+  const tbody = $("#levels");
+  tbody.replaceChildren();
+  if (!state.profile) return tbody.append(h("tr", {}, h("td", { colspan: 3, class: "muted" }, "需要先创建档案。")));
+  const r = await api("GET", "/api/levels/mine");
+  if (!r.ok) return tbody.append(h("tr", {}, h("td", { colspan: 3, class: "muted" }, r.error)));
+  if (!r.body.items.length) return tbody.append(h("tr", {}, h("td", { colspan: 3, class: "muted" }, "还没有上传关卡")));
+  for (const lv of r.body.items) {
+    tbody.append(h("tr", {}, h("td", {}, lv.title),
+      h("td", {}, h("span", { class: "badge " + lv.status }, STATUS_TEXT[lv.status] || lv.status)),
+      h("td", { class: "num small muted" }, new Date(lv.created_at).toLocaleDateString())));
+  }
+}
+
+/* ---------- actions ---------- */
+async function busy(form, fn) {
+  const btn = form.querySelector("button:not([type=button])");
+  btn.disabled = true;
+  try { await fn(); } catch (e) { console.error(e); } finally { btn.disabled = false; }
+}
+
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => {
+  state.mode = b.dataset.mode;
+  document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("on", x === b));
+  $("#auth-submit").textContent = state.mode === "login" ? "登录" : "注册";
+  $("#auth-form").password.autocomplete = state.mode === "login" ? "current-password" : "new-password";
+  setMsg("#auth-msg", "");
+}));
+
+$("#auth-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const f = ev.target;
+  busy(f, async () => {
+    const creds = { email: f.email.value.trim(), password: f.password.value };
+    try {
+      const path = state.mode === "login" ? "token?grant_type=password" : "signup";
+      const { res, body } = await authCall(path, creds);
+      if (!res.ok) return setMsg("#auth-msg", errorText(body, res.status), "bad");
+      if (body.access_token) { setSession(body); f.reset(); return render(); }
+      // Sign-up with email confirmation enabled returns a user but no session.
+      setMsg("#auth-msg", "注册成功，请到邮箱点击确认链接后再登录。", "ok");
+    } catch (e) { setMsg("#auth-msg", e.message, "bad"); }
+  });
+});
+
+$("#logout").addEventListener("click", async () => {
+  if (state.session) await authCall("logout", {}, state.session.access_token).catch(() => {});
+  setSession(null);
+  state.profile = null;
+  render();
+});
+$("#refresh").addEventListener("click", () => loadDashboard());
+$("#clear-log").addEventListener("click", () => $("#log").replaceChildren());
+
+$("#profile-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const f = ev.target;
+  busy(f, async () => {
+    const r = await api(state.profile ? "PATCH" : "POST", "/api/users/me", { username: f.username.value.trim() });
+    if (!r.ok) return setMsg("#profile-msg", r.error, "bad");
+    setMsg("#profile-msg", state.profile ? "用户名已更新" : "档案已创建", "ok");
+    await loadProfile();
+    await Promise.all([loadBest(), loadBoard(true), loadLevels()]);
+  });
+});
+
+$("#score-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const f = ev.target;
+  busy(f, async () => {
+    const r = await api("POST", "/api/scores", {
+      score: Number(f.score.value), duration_ms: Math.round(Number(f.seconds.value) * 1000), client_version: "test-console",
+    });
+    if (!r.ok) return setMsg("#score-msg", r.error, "bad");
+    setMsg("#score-msg", r.body.new_best ? `新纪录！最佳 ${r.body.best_score}` : `已记录，最佳仍为 ${r.body.best_score}`, "ok");
+    await Promise.all([loadBest(), loadBoard(true)]);
+  });
+});
+
+$("#level-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const f = ev.target;
+  busy(f, async () => {
+    let data;
+    try { data = JSON.parse(f.data.value); } catch { return setMsg("#level-msg", "关卡数据不是合法 JSON", "bad"); }
+    if (!data || typeof data !== "object" || Array.isArray(data)) return setMsg("#level-msg", "关卡数据必须是 JSON 对象 {...}", "bad");
+    const r = await api("POST", "/api/levels", { title: f.title.value.trim(), description: f.description.value.trim(), data });
+    if (!r.ok) return setMsg("#level-msg", r.error, "bad");
+    setMsg("#level-msg", "已上传，等待管理员审核", "ok");
+    await loadLevels();
+  });
+});
+
+$("#setup-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const f = ev.target;
+  state.cfg = { supabase_url: f.url.value.trim().replace(/\/(rest|auth)\/v1\/?$/, "").replace(/\/$/, ""),
+                supabase_publishable_key: f.key.value.trim() };
+  saveJSON(CONFIG_KEY, state.cfg);
+  render();
+});
+
+/* ---------- boot ---------- */
+async function checkHealth() {
+  const pill = $("#health");
+  const r = await api("GET", "/api/health").catch(() => ({ ok: false, error: "无法连接" }));
+  pill.replaceChildren(h("span", { class: "dot " + (r.ok ? "ok" : "bad") }),
+    h("span", {}, r.ok ? `API 正常 · ${r.body.store}` : `API 异常：${r.error}`));
+}
+
+(async function boot() {
+  checkHealth();
+  const r = await api("GET", "/api/config").catch(() => ({ ok: false }));
+  const server = r.ok ? r.body : {};
+  const local = loadJSON(CONFIG_KEY) || {};
+  state.cfg = {
+    supabase_url: server.supabase_url || local.supabase_url,
+    supabase_publishable_key: server.supabase_publishable_key || local.supabase_publishable_key,
+  };
+  render();
+})();
+</script>
+</body>
+</html>

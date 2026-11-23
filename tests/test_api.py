@@ -79,6 +79,13 @@ def test_health():
     assert r.json() == {"status": "ok", "store": "postgres" if _mode["pg"] else "memory"}
 
 
+def test_frontend_and_public_config():
+    r = client.get("/")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/html")
+    assert "Wickbound" in r.text
+    assert set(client.get("/api/config").json()) == {"supabase_url", "supabase_publishable_key"}
+
+
 def test_auth_required_and_bad_tokens():
     assert client.get("/api/users/me").status_code == 401
     bad = {"Authorization": "Bearer nope"}

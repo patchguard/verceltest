@@ -1,11 +1,12 @@
 """Wickbound API - FastAPI entrypoint (auto-detected by Vercel)."""
 
 import logging
+from pathlib import Path
 
 import psycopg
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from backend.config import get_settings
 from backend.database import Store, get_store
@@ -31,9 +32,22 @@ app.include_router(levels.router)
 app.include_router(levels.admin_router)
 
 
-@app.get("/", tags=["meta"])
-def root():
-    return {"status": "ok", "service": "Wickbound API", "docs": "/docs"}
+FRONTEND = Path(__file__).parent / "frontend" / "index.html"
+
+
+@app.get("/", include_in_schema=False)
+def frontend():
+    """Test console (single static page) served from the same origin as the API."""
+    return FileResponse(FRONTEND, media_type="text/html", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/api/config", tags=["meta"])
+def public_config():
+    """Public values the browser needs to talk to Supabase Auth. Both are safe to expose."""
+    return {
+        "supabase_url": settings.supabase_url or None,
+        "supabase_publishable_key": settings.supabase_publishable_key or None,
+    }
 
 
 @app.exception_handler(psycopg.Error)

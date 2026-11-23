@@ -29,6 +29,7 @@ class Settings:
     allow_memory_store: bool
     supabase_url: str
     supabase_jwt_secret: str
+    supabase_publishable_key: str
     jwt_audience: str
     cors_origins: list[str]
     max_score: int
@@ -49,6 +50,8 @@ def get_settings() -> Settings:
         allow_memory_store=os.getenv("ALLOW_MEMORY_STORE", "0" if on_vercel else "1") == "1",
         supabase_url=_project_url(os.getenv("SUPABASE_URL", "")),
         supabase_jwt_secret=os.getenv("SUPABASE_JWT_SECRET", "").strip(),
+        # Public browser key (sb_publishable_... or legacy anon key); served to the test frontend.
+        supabase_publishable_key=(os.getenv("SUPABASE_PUBLISHABLE_KEY") or os.getenv("SUPABASE_ANON_KEY") or "").strip(),
         jwt_audience=os.getenv("JWT_AUDIENCE", "authenticated"),
         cors_origins=_list(
             "CORS_ORIGINS",
