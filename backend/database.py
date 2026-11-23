@@ -20,6 +20,7 @@ from fastapi import HTTPException
 from .config import get_settings
 
 Row = dict[str, Any]
+REQUIRED_TABLES = ("users", "levels", "score_submissions", "leaderboard")
 
 
 class Conflict(Exception):
@@ -30,6 +31,7 @@ class Store(Protocol):
     kind: str
 
     def ping(self) -> None: ...
+    def missing_tables(self) -> list[str]: ...
     def get_user(self, user_id: UUID) -> Row | None: ...
     def create_user(self, user_id: UUID, username: str) -> Row: ...
     def update_username(self, user_id: UUID, username: str) -> Row: ...
@@ -69,6 +71,9 @@ class MemoryStore:
 
     def ping(self) -> None:
         return None
+
+    def missing_tables(self) -> list[str]:
+        return []
 
     def get_user(self, user_id):
         return self.users.get(user_id)
@@ -205,6 +210,13 @@ class PostgresStore:
 
     def ping(self):
         self._one("select 1 as ok")
+
+    def missing_tables(self) -> list[str]:
+        rows = self._all(
+            "select t from unnest(%s::text[]) as t where to_regclass('public.' || t) is null",
+            (list(REQUIRED_TABLES),),
+        )
+        return [r["t"] for r in rows]
 
     def get_user(self, user_id):
         return self._one("select id, username, role, created_at from users where id = %s", (user_id,))
