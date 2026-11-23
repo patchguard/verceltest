@@ -14,6 +14,15 @@ def _list(name: str, default: str) -> list[str]:
     return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
 
 
+def _project_url(raw: str) -> str:
+    """Accept 'https://x.supabase.co', with or without a trailing /rest/v1 or /auth/v1."""
+    url = raw.strip().rstrip("/")
+    for suffix in ("/rest/v1", "/auth/v1"):
+        if url.endswith(suffix):
+            url = url[: -len(suffix)]
+    return url
+
+
 @dataclass(frozen=True)
 class Settings:
     database_url: str
@@ -38,7 +47,7 @@ def get_settings() -> Settings:
         # On Vercel memory is not shared between invocations, so refuse to
         # silently fall back to it unless explicitly allowed.
         allow_memory_store=os.getenv("ALLOW_MEMORY_STORE", "0" if on_vercel else "1") == "1",
-        supabase_url=os.getenv("SUPABASE_URL", "").strip().rstrip("/"),
+        supabase_url=_project_url(os.getenv("SUPABASE_URL", "")),
         supabase_jwt_secret=os.getenv("SUPABASE_JWT_SECRET", "").strip(),
         jwt_audience=os.getenv("JWT_AUDIENCE", "authenticated"),
         cors_origins=_list(

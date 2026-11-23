@@ -27,17 +27,37 @@ def _jwks_client(url: str) -> jwt.PyJWKClient:
     return jwt.PyJWKClient(url, cache_keys=True, lifespan=3600)
 
 
+ASYMMETRIC_ALGS = ["ES256", "RS256"]
+
+
 def decode_token(token: str) -> dict:
+    """Verify a Supabase access token.
+
+    The verification method follows the token's own `alg` header, so a project
+    that migrated to asymmetric signing keys keeps working even if the legacy
+    HS256 secret is still configured.
+    """
     s = get_settings()
+    unauthorized = HTTPException(401, "invalid or expired token", headers={"WWW-Authenticate": "Bearer"})
+    issuer = f"{s.supabase_url}/auth/v1" if s.supabase_url else None
+    options = {"require": ["exp", "sub"]}
     try:
-        if s.supabase_jwt_secret:
-            return jwt.decode(token, s.supabase_jwt_secret, algorithms=["HS256"], audience=s.jwt_audience)
-        if s.supabase_url:
-            key = _jwks_client(f"{s.supabase_url}/auth/v1/.well-known/jwks.json").get_signing_key_from_jwt(token)
-            return jwt.decode(token, key.key, algorithms=["ES256", "RS256"], audience=s.jwt_audience)
+        alg = jwt.get_unverified_header(token).get("alg")
+        if alg == "HS256":
+            if not s.supabase_jwt_secret:
+                raise unauthorized
+            key = s.supabase_jwt_secret
+        elif alg in ASYMMETRIC_ALGS:
+            if not s.supabase_url:
+                raise HTTPException(503, "auth is not configured (set SUPABASE_URL)")
+            key = _jwks_client(f"{issuer}/.well-known/jwks.json").get_signing_key_from_jwt(token).key
+        else:
+            raise unauthorized
+        return jwt.decode(token, key, algorithms=[alg], audience=s.jwt_audience, issuer=issuer, options=options)
+    except jwt.PyJWKClientConnectionError as exc:
+        raise HTTPException(503, "could not fetch Supabase signing keys") from exc
     except jwt.PyJWTError as exc:
-        raise HTTPException(401, "invalid or expired token", headers={"WWW-Authenticate": "Bearer"}) from exc
-    raise HTTPException(503, "auth is not configured (set SUPABASE_JWT_SECRET or SUPABASE_URL)")
+        raise unauthorized from exc
 
 
 def optional_user(creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> AuthUser | None:

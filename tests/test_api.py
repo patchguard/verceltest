@@ -89,6 +89,42 @@ def test_auth_required_and_bad_tokens():
     assert client.get("/api/users/me", headers=wrong_aud).status_code == 401
 
 
+def test_asymmetric_supabase_token(monkeypatch):
+    """ES256 tokens are verified via JWKS even when the legacy HS256 secret is also configured."""
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    from backend import config, security
+
+    url = "https://proj.supabase.co"
+    settings = dataclasses.replace(config.get_settings(), supabase_url=url)
+    monkeypatch.setattr(security, "get_settings", lambda: settings)
+    private = ec.generate_private_key(ec.SECP256R1())
+
+    class FakeJWKS:
+        def get_signing_key_from_jwt(self, _token):
+            return type("K", (), {"key": private.public_key()})()
+
+    monkeypatch.setattr(security, "_jwks_client", lambda _url: FakeJWKS())
+
+    def es_token(**overrides):
+        claims = {"sub": str(new_identity()), "aud": "authenticated", "iss": f"{url}/auth/v1",
+                  "exp": int(time.time()) + 3600, **overrides}
+        return {"Authorization": f"Bearer {jwt.encode(claims, private, algorithm='ES256')}"}
+
+    assert client.get("/api/users/me", headers=es_token()).status_code == 403  # valid, no profile yet
+    assert client.get("/api/users/me", headers=es_token(iss="https://other.supabase.co/auth/v1")).status_code == 401
+    unsigned = jwt.encode({"sub": str(uuid.uuid4()), "aud": "authenticated"}, None, algorithm="none")
+    assert client.get("/api/users/me", headers={"Authorization": f"Bearer {unsigned}"}).status_code == 401
+
+
+def test_project_url_normalization():
+    from backend.config import _project_url
+
+    for raw in ["https://x.supabase.co", "https://x.supabase.co/", "https://x.supabase.co/rest/v1/",
+                " https://x.supabase.co/auth/v1 "]:
+        assert _project_url(raw) == "https://x.supabase.co"
+
+
 def test_profile_flow():
     uid = new_identity()
     assert client.get("/api/users/me", headers=auth(uid)).status_code == 403
