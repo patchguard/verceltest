@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Backend used when this page is hosted elsewhere (e.g. GitHub Pages). Override with ?api=https://... -->
+<meta name="wb-api-base" content="https://verceltest-zeta-blush.vercel.app">
 <title>Wickbound 测试台</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%23c2410c'/%3E%3C/svg%3E">
 <style>
@@ -179,6 +181,15 @@
 "use strict";
 const $ = (sel) => document.querySelector(sel);
 const SESSION_KEY = "wb_session";
+// Same origin when the backend serves this page itself (Vercel or local uvicorn), else the configured API host.
+const API_BASE = (() => {
+  const override = new URLSearchParams(location.search).get("api");
+  if (override) return override.replace(/\/+$/, "");
+  const configured = document.querySelector('meta[name="wb-api-base"]').content.replace(/\/+$/, "");
+  const sameOrigin = location.hostname === new URL(configured).hostname
+    || ["localhost", "127.0.0.1"].includes(location.hostname);
+  return sameOrigin ? "" : configured;
+})();
 const CONFIG_KEY = "wb_supabase_config";
 
 const state = { cfg: null, session: loadJSON(SESSION_KEY), profile: null, mode: "login" };
@@ -266,7 +277,7 @@ async function api(method, path, payload) {
     const headers = {};
     if (payload !== undefined) headers["Content-Type"] = "application/json";
     if (state.session) headers.Authorization = `Bearer ${state.session.access_token}`;
-    return rawFetch(path, { method, headers, body: payload === undefined ? undefined : JSON.stringify(payload) }, path);
+    return rawFetch(API_BASE + path, { method, headers, body: payload === undefined ? undefined : JSON.stringify(payload) }, path);
   };
   let { res, body } = await go();
   if (res.status === 401 && state.session && await refreshSession()) ({ res, body } = await go());

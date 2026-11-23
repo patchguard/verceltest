@@ -55,7 +55,7 @@ def get_settings() -> Settings:
         jwt_audience=os.getenv("JWT_AUDIENCE", "authenticated"),
         cors_origins=_list(
             "CORS_ORIGINS",
-            "https://wickbound.online,https://www.wickbound.online,"
+            "https://wickbound.online,https://www.wickbound.online,https://patchguard.github.io,"
             "http://localhost:3000,http://localhost:5500,http://127.0.0.1:5500",
         ),
         max_score=_int("MAX_SCORE", 1_000_000),
